@@ -15,7 +15,7 @@ const foodManageSchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum:["fastFood","veg","nonVeg"]
+      enum:["fastfood","veg","nonVeg"]
     },
 
     description: {

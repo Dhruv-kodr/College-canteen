@@ -1,36 +1,46 @@
-import React from "react";
+import toast, { Toaster } from "react-hot-toast";
 import { Link } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 const Login = () => {
+  const navigate = useNavigate();
 
+  const formHandeler = (e) => {
+    e.preventDefault();
+    const email = e.target[0].value;
+    const password = e.target[1].value;
+    axios
+      .post(
+        "http://localhost:3000/api/auth/login",
+        {
+          email,
+          password,
+        },
+        { withCredentials: true },
+      )
+      .then((res) => {
+        const { token, userData } = res.data;
 
-    const navigate = useNavigate();
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(userData));
 
-    const formHandeler =(e)=>{
-        e.preventDefault();
-        const email = e.target[0].value;
-        const password = e.target[1].value;
-        axios.post("http://localhost:3000/api/auth/login",{
-            email,
-            password
-        },{ withCredentials: true })
-        .then(res => {
-            console.log(res.data);
-            localStorage.setItem("token", res.data.token);
-            navigate("/");
+        if (userData.role === "admin") {
+          toast.success("Welcome Admin ");
+          navigate("/admin");
+        } else {
+          toast.success(`Welcome ${userData.name} `);
+          navigate("/");
+        }
 
-            e.target[0].value = "";
-            e.target[1].value = "";
-        })
-        .catch(err => {
-            console.log(err.response?.data?.message || "Login failed");
-             e.target[0].value = "";
-            e.target[1].value = "";
-        })
-    }
+        e.target.reset();
+      })
+      .catch((err) => {
+        toast.error(err.response?.data?.message || "Login failed");
+        e.target.reset();
+      });
+  };
 
   const handleGoogleLogin = async (credentialResponse) => {
     try {
@@ -39,36 +49,34 @@ const Login = () => {
         {
           tokenId: credentialResponse.credential,
         },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
-      console.log(res.data);
+      const { token, userData } = res.data;
 
-      // optional: localStorage (if needed)
-      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(userData));
 
-      // role based redirect
-      if (res.data.userData.role === "admin") {
-        navigate("/admin-dashboard");
+      if (userData.role === "admin") {
+        toast.success("Welcome Admin 👑");
+        navigate("/admin");
       } else {
+        toast.success(`Welcome ${userData.name} 👋`);
         navigate("/");
-
       }
-
     } catch (error) {
       console.log(error.response?.data?.message || "Google login failed");
     }
-  }
-
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center  bg-gray-800 text-white px-4">
       <div className="w-full max-w-md bg-gray-900 rounded-xl shadow-lg p-8">
         {/* Heading */}
         <h2 className="text-3xl font-bold text-center mb-6">Login</h2>
-
+ <Toaster position="bottom-right" />
         {/* Form */}
-        <form onSubmit={formHandeler}  className="space-y-4">
+        <form onSubmit={formHandeler} className="space-y-4">
           {/* Email */}
           <div>
             <label className="block text-sm mb-1">Email</label>

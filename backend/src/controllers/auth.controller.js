@@ -43,6 +43,7 @@ const loginUser = async (req, res) => {
       message: "Login successful",
       token,
       userData: {
+        id:user._id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -102,7 +103,92 @@ const RegisterUser = async (req, res) => {
   }
 };
 
+/*============= LOGOUT =========== */
+const logout = async(req,res)=>{
+   res.clearCookie("token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+
+  res.status(200).json({
+    message: "Logout successful",
+  });
+}
+const updateUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      req.body,
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "User updated successfully",
+      user
+    });
+
+  } catch (error) {
+    console.log("update user error", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const user = await User.findByIdAndDelete(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found"
+      });
+    }
+
+    res.status(200).json({
+      message: "User deleted successfully"
+    });
+
+  } catch (error) {
+    console.log("delete user error", error);
+    res.status(500).json({
+      message: "Server error"
+    });
+  }
+};
+
+const getUser = async (req, res) => {
+  try {
+
+    const users = await User.find().select("-password");
+
+    res.status(200).json({
+      message: "Users fetched successfully",
+      users
+    });
+
+  } catch (error) {
+
+    console.log("get users error", error);
+
+    res.status(500).json({
+      message: "Server error"
+    });
+
+  }
+};
 module.exports = {
   loginUser,
   RegisterUser,
+  logout,
+  updateUser,
+  deleteUser,
+  getUser
 };
