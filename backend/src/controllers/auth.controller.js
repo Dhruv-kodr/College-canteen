@@ -1,4 +1,6 @@
 const User = require("../models/authUser.model");
+const Buy = require("../models/buyModel");
+const Cart = require("../models/cartModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
@@ -142,28 +144,32 @@ const updateUser = async (req, res) => {
 
 const deleteUser = async (req, res) => {
   try {
-    const userId = req.params.id;
-
-    const user = await User.findByIdAndDelete(userId);
-
+    const { id } = req.params;
+    
+    // Check if user exists
+    const user = await User.findById(id);
     if (!user) {
-      return res.status(404).json({
-        message: "User not found"
-      });
+      return res.status(404).json({ message: "User not found" });
     }
-
-    res.status(200).json({
-      message: "User deleted successfully"
+    
+    // Delete user's orders
+    await Buy.deleteMany({ userId: id });
+    
+    // Delete user's cart items
+    await Cart.deleteMany({ userId: id });
+    
+    // Finally delete the user
+    await User.findByIdAndDelete(id);
+    
+    res.status(200).json({ 
+      success: true, 
+      message: "User and all associated data (orders, cart) deleted successfully" 
     });
-
   } catch (error) {
-    console.log("delete user error", error);
-    res.status(500).json({
-      message: "Server error"
-    });
+    console.log(error);
+    res.status(500).json({ message: "Server error" });
   }
 };
-
 const getUser = async (req, res) => {
   try {
 

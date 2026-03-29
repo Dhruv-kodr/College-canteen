@@ -1,11 +1,12 @@
 import { GiHamburgerMenu } from "react-icons/gi";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import React, { useEffect } from "react";
 import { useState } from "react";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const navigate = useNavigate()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -21,6 +22,11 @@ const Navbar = () => {
     setIsOpen(false);
   };
 
+  const handleLogout =()=>{
+    localStorage.clear()
+    navigate('/login')
+
+  }
     const user = JSON.parse(localStorage.getItem("user"));
   
 
@@ -74,10 +80,10 @@ const Navbar = () => {
             Menu
           </Link>
           <Link
-            to="/admin"
+            to="/my-orders"
             className="font-medium text-lg cursor-pointer active:scale-95 hover:text-amber-400 transition-colors duration-300"
           >
-            Admin Login
+            My Orders
           </Link>
         </div>
 
@@ -99,6 +105,13 @@ const Navbar = () => {
           >
             cart
           </Link>
+          <button
+          onClick={handleLogout}
+          className=" bg-red-600 px-2 py-1 font-semibold text-lg cursor-pointer active:scale-95 hover:text-amber-400 transition-colors duration-300 rounded-xl"
+          >
+            Logout
+          </button>
+
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -150,11 +163,18 @@ const Navbar = () => {
                   Status
                 </Link>
                 <Link
-                  to="/admin"
+                  to="/my-order"
                   onClick={handleLinkClick}
                   className="font-medium text-lg text-white py-2 px-4 rounded-lg hover:bg-white/20 transition-all duration-300 active:scale-95"
                 >
-                  Admin Login
+                  myOrder
+                </Link>
+                <Link
+                  to={`/cart/${user.id}`}
+                  onClick={handleLinkClick}
+                  className="font-medium text-lg text-white py-2 px-4 rounded-lg hover:bg-white/20 transition-all duration-300 active:scale-95"
+                >
+                  Cart
                 </Link>
 
                 {/* Mobile Search */}

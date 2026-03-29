@@ -37,5 +37,19 @@ router.post("/buy-all",protect, foodManageController.buyAllFood)
 
 router.get("/my-orders",protect,foodManageController.getMyOrders)
 
+// backend/routes/foodRoutes.js or wherever your routes are
+
+// Cancel order
+router.put("/cancel-order/:orderId", protect, foodManageController.cancelOrder);
+
+//admin routes for order management
+
+router.get("/admin/orders", protect, isAdmin, foodManageController.getAllOrders);
+router.get("/admin/orders/stats", protect, isAdmin, foodManageController.getOrderStats);
+router.get("/admin/orders/:orderId", protect, isAdmin, foodManageController.getOrderDetails);
+router.put("/admin/orders/:orderId/status", protect, isAdmin, foodManageController.updateOrderStatus);
+router.post("/admin/orders/bulk-status", protect, isAdmin, foodManageController.bulkUpdateOrderStatus);
+router.delete("/admin/orders/:orderId", protect, isAdmin, foodManageController.deleteOrder);
+
 
 module.exports = router;

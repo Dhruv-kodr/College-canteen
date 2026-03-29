@@ -1,21 +1,23 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import Navbar from '../components/home/Navbar'
 import MainPart from '../components/home/MainPart'
 import { Toaster } from "react-hot-toast";
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+
 
 
 const Home = () => {
-  const navigate = useNavigate()
+  
+  const navigate = useNavigate();
 
-  useEffect(()=>{
-    const token = localStorage.getItem("token");
-    if(!token){
-      navigate('/login')
-    }
-  },[navigate])
-
+useEffect(() => {
+      const token = localStorage.getItem("token")
+  
+      if (!token ) {
+        navigate("/login")
+      }
+  
+    }, [navigate])
   return (
     <div className='min-h-screen text-black relative z-50' >
       <Toaster position="bottom-right" />

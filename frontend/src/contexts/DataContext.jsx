@@ -12,15 +12,20 @@ export const DataProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [cartLoading, setCartLoading] = useState(false);
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false); // ✅ Added orders loading state
 
   // Fetch food data
   const fetchFoodData = async () => {
     try {
+      setLoading(true);
       const response = await axios.get(`${API}/food/get-food`);
       setFoodData(response.data);
     } catch (error) {
       console.log(error);
       toast.error("Failed to load food items");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -39,6 +44,24 @@ export const DataProvider = ({ children }) => {
       }
     } finally {
       setCartLoading(false);
+    }
+  }, []);
+
+  // Get my orders - ✅ IMPROVED with loading state and error handling
+  const myOrders = useCallback(async () => {
+    try {
+      setOrdersLoading(true);
+      const response = await axios.get(`${API}/food/my-orders`, {
+        withCredentials: true
+      });
+      setOrders(response.data.orders || []);
+    } catch (error) {
+      console.log(error);
+      if (error.response?.status !== 401) {
+        toast.error("Failed to load orders");
+      }
+    } finally {
+      setOrdersLoading(false);
     }
   }, []);
 
@@ -64,6 +87,7 @@ export const DataProvider = ({ children }) => {
   // Increase quantity (same as add to cart)
   const increaseQuantity = async (foodId) => {
     try {
+      setLoading(true);
       await axios.post(
         `${API}/food/add-cart`,
         { foodId },
@@ -73,12 +97,15 @@ export const DataProvider = ({ children }) => {
     } catch (error) {
       console.log(error);
       toast.error("Failed to update quantity");
+    } finally {
+      setLoading(false);
     }
   };
 
   // Decrease quantity
   const decreaseQuantity = async (foodId) => {
     try {
+      setLoading(true);
       await axios.post(
         `${API}/food/decrease-cart`,
         { foodId },
@@ -88,12 +115,15 @@ export const DataProvider = ({ children }) => {
     } catch (error) {
       console.log(error);
       toast.error("Failed to update quantity");
+    } finally {
+      setLoading(false);
     }
   };
 
   // Remove from cart
   const removeFromCart = async (foodId) => {
     try {
+      setLoading(true);
       await axios.delete(`${API}/food/removecart`, {
         data: { foodId },
         withCredentials: true,
@@ -103,6 +133,8 @@ export const DataProvider = ({ children }) => {
     } catch (error) {
       console.log(error);
       toast.error("Failed to remove item");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -117,13 +149,12 @@ export const DataProvider = ({ children }) => {
       );
       
       // ✅ Clear cart for this specific item
-      // Option 1: Remove only the bought item from cart
       setCartItems(prevItems => 
         prevItems.filter(item => item.foodId?._id !== foodId)
       );
       
-      // Option 2: Or refetch cart to sync with server (choose one)
-      // await getCart();
+      // ✅ Refresh orders after placing order
+      await myOrders();
       
       toast.success("Order placed successfully!");
       return response.data;
@@ -157,11 +188,13 @@ export const DataProvider = ({ children }) => {
         { withCredentials: true }
       );
 
-      // ✅ Clear cart immediately without waiting for server
+      // ✅ Clear cart immediately
       setCartItems([]);
       
-      // Optional: Sync with server in background
-      // Don't await this - let it happen in background
+      // ✅ Refresh orders after placing order
+      await myOrders();
+      
+      // Background sync with server
       getCart().catch(err => console.log("Background sync error:", err));
 
       toast.success("Order placed successfully!");
@@ -171,6 +204,54 @@ export const DataProvider = ({ children }) => {
       console.log(error);
       toast.error(error.response?.data?.message || "Failed to place order");
       throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelOrder = async (orderId) => {
+  try {
+    setLoading(true);
+    const response = await axios.put(
+      `${API}/food/cancel-order/${orderId}`,
+      {},
+      { withCredentials: true }
+    );
+    
+    // Update orders in state
+    setOrders(prevOrders => 
+      prevOrders.map(order => 
+        order._id === orderId 
+          ? { ...order, status: "cancelled" }
+          : order
+      )
+    );
+    
+    toast.success("Order cancelled successfully!");
+    return response.data;
+  } catch (error) {
+    console.log(error);
+    toast.error(error.response?.data?.message || "Failed to cancel order");
+    throw error;
+  } finally {
+    setLoading(false);
+  }
+};
+
+  // ✅ Clear entire cart (useful for checkout)
+  const clearCart = async () => {
+    try {
+      setLoading(true);
+      await axios.post(
+        `${API}/food/clear-cart`,
+        {},
+        { withCredentials: true }
+      );
+      setCartItems([]);
+      toast.success("Cart cleared");
+    } catch (error) {
+      console.log(error);
+      toast.error("Failed to clear cart");
     } finally {
       setLoading(false);
     }
@@ -199,32 +280,59 @@ export const DataProvider = ({ children }) => {
     return cartItems.reduce((count, item) => count + item.quantity, 0);
   };
 
+  // ✅ Get order statistics
+  const getOrderStats = useCallback(() => {
+    const totalOrders = orders.length;
+    const deliveredOrders = orders.filter(o => o.status === "delivered").length;
+    const pendingOrders = orders.filter(o => o.status === "pending").length;
+    const totalSpent = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+    
+    return { totalOrders, deliveredOrders, pendingOrders, totalSpent };
+  }, [orders]);
+
+
+
   useEffect(() => {
     fetchFoodData();
-    const token = document.cookie.includes("token");
+
+    const token = document.cookie.includes("token") || localStorage.getItem("token");
     if (token) {
       getCart();
+      myOrders();
     }
-  }, [getCart]);
+  }, [getCart, myOrders]); // ✅ Added myOrders to dependency array
 
   return (
     <DataContext.Provider
       value={{
+        // Data
         foodData,
         cartItems,
-        cartLoading,
+        orders,
+        
+        // Loading states
         loading,
+        cartLoading,
+        ordersLoading,
+        
+        // Cart functions
         addToCart,
         increaseQuantity,
         decreaseQuantity,
         removeFromCart,
-        buyNow,
-        buyAll,
+        clearCart, // ✅ Added clearCart
         getCartQuantity,
         isInCart,
         getCartTotal,
         getCartCount,
-        setCartItems
+        setCartItems,
+        
+        // Order functions
+        buyNow,
+        buyAll,
+        myOrders,
+        getOrderStats,
+        cancelOrder // ✅ Added order statistics
       }}
     >
       {children}

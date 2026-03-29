@@ -1,253 +1,283 @@
-// Status.jsx
-import React, { useState } from 'react'
-import { 
-  Activity,
-  Clock,
-  CheckCircle,
-  XCircle,
-  TrendingUp,
-  Users,
-  Utensils,
-  DollarSign,
-  RefreshCw,
-  AlertCircle
-} from 'lucide-react'
+// pages/admin/AdminOrders.jsx - Simple Working Version
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { toast } from 'react-hot-toast';
+import { ChevronLeft, ChevronRight, RefreshCw, Search, Filter, X, Package, Clock, CheckCircle, XCircle, TrendingUp, DollarSign, User, Phone, Calendar, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 
-const Status = () => {
-  const [refreshing, setRefreshing] = useState(false)
+const AdminOrders = () => {
+  const [orders, setOrders] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1 });
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [filters, setFilters] = useState({ status: 'all', page: 1, search: '', startDate: '', endDate: '' });
+  const [showFilters, setShowFilters] = useState(false);
+  const [expandedOrder, setExpandedOrder] = useState(null);
+  const [updating, setUpdating] = useState(false);
 
-  // Sample real-time data
-  const systemStatus = {
-    server: 'online',
-    database: 'connected',
-    api: 'operational',
-    lastBackup: '2024-01-15 03:00 AM'
-  }
+  // Fetch orders function
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (filters.status && filters.status !== 'all') params.append('status', filters.status);
+      if (filters.search) params.append('search', filters.search);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.page) params.append('page', filters.page);
+      params.append('limit', 10);
+      
+      const response = await axios.get(`http://localhost:3000/api/food/admin/orders?${params}`, {
+        withCredentials: true
+      });
+      
+      console.log("API Response:", response.data);
+      
+      setOrders(response.data.orders || []);
+      setStats(response.data.stats);
+      setPagination(response.data.pagination);
+    } catch (error) {
+      console.error("Fetch error:", error);
+      toast.error(error.response?.data?.message || "Failed to fetch orders");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const liveStats = {
-    activeOrders: 23,
-    preparing: 12,
-    ready: 8,
-    delivered: 156,
-    todayRevenue: 12450,
-    pendingPayments: 2340,
-    avgWaitTime: '12 mins',
-    tableOccupancy: '65%'
-  }
+  // Update order status
+  const updateOrderStatus = async (orderId, newStatus) => {
+    setUpdating(true);
+    // Optimistic update
+    const oldOrders = [...orders];
+    setOrders(orders.map(order => 
+      order._id === orderId ? { ...order, status: newStatus } : order
+    ));
+    
+    try {
+      await axios.put(
+        `http://localhost:3000/api/food/admin/orders/${orderId}/status`,
+        { status: newStatus },
+        { withCredentials: true }
+      );
+      toast.success(`Status updated to ${newStatus}`);
+      fetchOrders(); // Refresh to get latest stats
+    } catch (error) {
+      setOrders(oldOrders);
+      toast.error("Failed to update status");
+    } finally {
+      setUpdating(false);
+    }
+  };
 
-  const recentActivities = [
-    { id: 1, action: 'New order received', time: '2 mins ago', status: 'success' },
-    { id: 2, action: 'Payment completed', time: '5 mins ago', status: 'success' },
-    { id: 3, action: 'Low stock alert: Paneer', time: '10 mins ago', status: 'warning' },
-    { id: 4, action: 'Order #1234 ready', time: '15 mins ago', status: 'info' },
-  ]
+  useEffect(() => {
+    fetchOrders();
+  }, [filters.status, filters.page, filters.search, filters.startDate, filters.endDate]);
 
-  const handleRefresh = () => {
-    setRefreshing(true)
-    setTimeout(() => setRefreshing(false), 2000)
+  const getStatusStyle = (status) => {
+    switch(status) {
+      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'confirmed': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'completed': return 'bg-green-100 text-green-800 border-green-300';
+      case 'delivered': return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'cancelled': return 'bg-red-100 text-red-800 border-red-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  const statCards = [
+    { title: 'Total Orders', value: stats?.total || 0, icon: Package, bg: 'bg-blue-500' },
+    { title: 'Pending', value: stats?.pending || 0, icon: Clock, bg: 'bg-yellow-500' },
+    { title: 'Confirmed', value: stats?.confirmed || 0, icon: CheckCircle, bg: 'bg-green-500' },
+    { title: 'Completed', value: stats?.completed || 0, icon: TrendingUp, bg: 'bg-purple-500' },
+    { title: 'Delivered', value: stats?.delivered || 0, icon: CheckCircle, bg: 'bg-emerald-500' },
+    { title: 'Cancelled', value: stats?.cancelled || 0, icon: XCircle, bg: 'bg-red-500' },
+    { title: 'Revenue', value: `₹${stats?.totalRevenue?.[0]?.total || 0}`, icon: DollarSign, bg: 'bg-green-600' }
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading orders...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-800">System Status</h1>
-        <button
-          onClick={handleRefresh}
-          className="flex items-center space-x-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
-        >
-          <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </button>
-      </div>
+    <div className="min-h-screen bg-gray-100 p-6">
+      <div className="container mx-auto max-w-7xl">
+        {/* Header */}
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">Order Management</h1>
+            <p className="text-gray-600">Manage and track all customer orders</p>
+          </div>
+          <button
+            onClick={fetchOrders}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all flex items-center gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
 
-      {/* System Health */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl shadow-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Server Status</p>
-              <p className="text-lg font-semibold text-green-600 flex items-center">
-                <CheckCircle className="h-4 w-4 mr-1" />
-                {systemStatus.server}
-              </p>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+          {statCards.map((stat, index) => (
+            <div key={index} className={`${stat.bg} rounded-xl shadow-md p-4 text-white`}>
+              <div className="flex items-center justify-between mb-3">
+                <stat.icon className="h-6 w-6 opacity-80" />
+                <span className="text-2xl font-bold">{stat.value}</span>
+              </div>
+              <p className="text-sm opacity-90">{stat.title}</p>
             </div>
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <Activity className="h-5 w-5 text-green-600" />
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-xl shadow-md p-4 mb-6">
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by Order ID or Customer Name..."
+                  value={filters.search}
+                  onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"
+                />
+              </div>
             </div>
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}
+              className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+              <option value="delivered">Delivered</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+            >
+              <Filter className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Database</p>
-              <p className="text-lg font-semibold text-green-600 flex items-center">
-                <CheckCircle className="h-4 w-4 mr-1" />
-                {systemStatus.database}
-              </p>
+        {/* Orders List */}
+        <div className="space-y-4">
+          {orders.length === 0 ? (
+            <div className="text-center py-20 bg-white rounded-xl shadow-md">
+              <div className="text-6xl mb-4">📦</div>
+              <h2 className="text-2xl font-bold text-gray-800">No orders found</h2>
             </div>
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <Activity className="h-5 w-5 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">API</p>
-              <p className="text-lg font-semibold text-green-600 flex items-center">
-                <CheckCircle className="h-4 w-4 mr-1" />
-                {systemStatus.api}
-              </p>
-            </div>
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-              <Activity className="h-5 w-5 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Last Backup</p>
-              <p className="text-lg font-semibold text-gray-800">{systemStatus.lastBackup}</p>
-            </div>
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <Clock className="h-5 w-5 text-blue-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Live Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Active Orders</h3>
-            <Clock className="h-6 w-6" />
-          </div>
-          <p className="text-4xl font-bold mb-2">{liveStats.activeOrders}</p>
-          <div className="flex justify-between text-sm">
-            <span>Preparing: {liveStats.preparing}</span>
-            <span>Ready: {liveStats.ready}</span>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Today's Revenue</h3>
-            <DollarSign className="h-6 w-6" />
-          </div>
-          <p className="text-4xl font-bold mb-2">₹{liveStats.todayRevenue}</p>
-          <p className="text-sm">Pending: ₹{liveStats.pendingPayments}</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Average Wait Time</h3>
-            <TrendingUp className="h-6 w-6" />
-          </div>
-          <p className="text-4xl font-bold mb-2">{liveStats.avgWaitTime}</p>
-          <p className="text-sm">Table occupancy: {liveStats.tableOccupancy}</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Total Delivered</h3>
-            <CheckCircle className="h-6 w-6" />
-          </div>
-          <p className="text-4xl font-bold mb-2">{liveStats.delivered}</p>
-          <p className="text-sm">Today's orders completed</p>
-        </div>
-      </div>
-
-      {/* Real-time Updates */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activities */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Recent Activities</h2>
-          <div className="space-y-4">
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  {activity.status === 'success' && (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                  )}
-                  {activity.status === 'warning' && (
-                    <AlertCircle className="h-5 w-5 text-yellow-500" />
-                  )}
-                  {activity.status === 'info' && (
-                    <Activity className="h-5 w-5 text-blue-500" />
-                  )}
+          ) : (
+            orders.map((order) => (
+              <div key={order._id} className="bg-white rounded-xl shadow-md border border-gray-200 p-5">
+                <div className="flex flex-wrap justify-between items-start gap-4 mb-3">
                   <div>
-                    <p className="text-sm font-medium text-gray-800">{activity.action}</p>
-                    <p className="text-xs text-gray-500">{activity.time}</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-gray-500 text-sm">Order ID:</span>
+                      <span className="text-gray-800 font-mono font-bold">
+                        #{order._id?.slice(-8).toUpperCase()}
+                      </span>
+                    </div>
+                    <select
+                      value={order.status}
+                      onChange={(e) => updateOrderStatus(order._id, e.target.value)}
+                      disabled={updating}
+                      className={`px-3 py-1 rounded-full text-sm font-medium border cursor-pointer ${getStatusStyle(order.status)}`}
+                    >
+                      <option value="pending">⏳ Pending</option>
+                      <option value="confirmed">✅ Confirmed</option>
+                      <option value="completed">👨‍🍳 Completed</option>
+                      <option value="delivered">🎉 Delivered</option>
+                      <option value="cancelled">❌ Cancelled</option>
+                    </select>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-gray-500 text-sm">Total Amount</p>
+                    <p className="text-2xl font-bold text-green-600">₹{order.totalPrice}</p>
                   </div>
                 </div>
-                <span className={`text-xs px-2 py-1 rounded-full ${
-                  activity.status === 'success' ? 'bg-green-100 text-green-600' :
-                  activity.status === 'warning' ? 'bg-yellow-100 text-yellow-600' :
-                  'bg-blue-100 text-blue-600'
-                }`}>
-                  {activity.status}
-                </span>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <User className="w-4 h-4" />
+                    <span>{order.userId?.name || 'Guest'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Phone className="w-4 h-4" />
+                    <span>{order.userId?.phone || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Clock className="w-4 h-4" />
+                    <span>Qty: {order.quantity}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setExpandedOrder(expandedOrder === order._id ? null : order._id)}
+                  className="mt-3 text-sm text-green-600 hover:text-green-700"
+                >
+                  {expandedOrder === order._id ? 'Show Less' : 'View Details'}
+                </button>
+
+                {expandedOrder === order._id && (
+                  <div className="mt-3 pt-3 border-t">
+                    <div className="flex gap-3">
+                      <img
+                        src={`http://localhost:3000/${order.foodId?.image}`}
+                        className="w-16 h-16 rounded-lg object-cover"
+                        onError={(e) => e.target.src = "https://via.placeholder.com/100"}
+                        alt=""
+                      />
+                      <div>
+                        <h4 className="font-semibold">{order.foodId?.name}</h4>
+                        <p className="text-gray-600 text-sm">{order.foodId?.description}</p>
+                        <p className="text-green-600 font-bold mt-1">₹{order.foodId?.price}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
 
-        {/* Current Load */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Current Load</h2>
-          <div className="space-y-6">
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-600">Kitchen Load</span>
-                <span className="text-sm font-semibold text-gray-800">75%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-orange-600 h-2.5 rounded-full" style={{ width: '75%' }}></div>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-600">Staff Available</span>
-                <span className="text-sm font-semibold text-gray-800">12/15</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-green-600 h-2.5 rounded-full" style={{ width: '80%' }}></div>
-              </div>
-            </div>
-            
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-600">Inventory Status</span>
-                <span className="text-sm font-semibold text-gray-800">65%</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-yellow-600 h-2.5 rounded-full" style={{ width: '65%' }}></div>
-              </div>
-            </div>
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <div className="mt-8 flex justify-center gap-2">
+            <button
+              onClick={() => setFilters({ ...filters, page: filters.page - 1 })}
+              disabled={filters.page === 1}
+              className="px-4 py-2 bg-white border rounded-lg disabled:opacity-50"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="px-4 py-2 bg-green-600 text-white rounded-lg">
+              Page {filters.page} of {pagination.totalPages}
+            </span>
+            <button
+              onClick={() => setFilters({ ...filters, page: filters.page + 1 })}
+              disabled={filters.page === pagination.totalPages}
+              className="px-4 py-2 bg-white border rounded-lg disabled:opacity-50"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <Users className="h-5 w-5 text-gray-500 mx-auto mb-1" />
-              <p className="text-lg font-bold text-gray-800">45</p>
-              <p className="text-xs text-gray-500">Customers waiting</p>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <Utensils className="h-5 w-5 text-gray-500 mx-auto mb-1" />
-              <p className="text-lg font-bold text-gray-800">28</p>
-              <p className="text-xs text-gray-500">Items in queue</p>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Status
+export default AdminOrders;

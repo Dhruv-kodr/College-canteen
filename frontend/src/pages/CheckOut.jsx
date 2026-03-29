@@ -7,8 +7,19 @@ import { DataContext } from "../contexts/DataContext";
 
 
 const Checkout = () => {
+
   const { state } = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+        const token = localStorage.getItem("token")
+    
+        if (!token ) {
+          navigate("/login")
+        }
+    
+      }, [navigate])
+
   const [paymentMethod, setPaymentMethod] = useState("");
   const [selectedItems, setSelectedItems] = useState([]);
   const [itemsData, setItemsData] = useState([]);

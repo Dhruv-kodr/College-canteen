@@ -8,6 +8,17 @@ import {Toaster } from "react-hot-toast";
 
 const Cart = () => {
   const navigate = useNavigate();
+
+
+  useEffect(() => {
+      const token = localStorage.getItem("token")
+  
+      if (!token ) {
+        navigate("/login")
+      }
+  
+    }, [navigate])
+
   const {
     cartItems,
     cartLoading,
@@ -15,15 +26,10 @@ const Cart = () => {
     decreaseQuantity,
     removeFromCart,
     getCartTotal,
-    getCartCount,
+    getCartCount
   } = useContext(DataContext);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/login");
-    }
-  }, [navigate]);
+
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const cartTotal = getCartTotal();
